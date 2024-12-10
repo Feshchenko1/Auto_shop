@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <link rel="stylesheet" type="text/css" href="../assets/css/store.css"/>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>{{ appTitle }}</h1>
+      
+      
+    </header>
+
+    
+    <div class="grid">
+      <div class="col-sx">
+        <div class="products">
+          <h2>
+            Products 
+            <button id="toggleCart" @click="toggleCartVisibility">
+              <img src="../assets/image/store/shopping-cart.png" height="24px" width="24px"/>
+            </button>
+          </h2>
+          <div>
+            <label for="categoryFilter">Filter by Category:</label>
+            <select id="categoryFilter" v-model="selectedCategory" @change="filterByCategory">
+              <option value="">All</option>
+              <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+            </select>
+          </div>
+          <div>
+            <label for="modelFilter">Filter by Model:</label>
+            <select id="modelFilter" v-model="selectedModel" @change="filterByModel" :disabled="!selectedCategory">
+              <option value="">All</option>
+              <option v-for="model in filteredModels" :key="model" :value="model">{{ model }}</option>
+            </select>
+          </div>
+          <ul class="products-list">
+            <li class="product" v-for="(prod, ind) in paginatedProducts" :key="prod._id">
+              <div class="box">
+                <div class="image">
+                  <div class="carousel">
+                    <div v-for="(image, idx) in prod.images" :key="idx" class="carousel-item" :class="{ active: activeImages[prod._id] === idx }">
+                      <img :src="'../assets/image/store-carts/' + image" alt="Product Image"/>
+                    </div>
+                    <button class="carousel-control left" @click="prevImage(prod._id)">&#9664;</button>
+                    <button class="carousel-control right" @click="nextImage(prod._id)">&#9654;</button>
+                    <div class="carousel-indicators">
+                      <span v-for="(image, idx) in prod.images" :key="idx" class="indicator" :class="{ active: activeImages[prod._id] === idx }" @click="setImage(prod._id, idx)"></span>
+                    </div>
+                  </div>
+                </div>
+                <h3 class="title">
+                  <a :href="'./template.html?id=' + prod._id">{{ prod.title }}</a>
+                </h3>
+      
+                <p class="price">{{ prod.price | currency }}</p>
+                <button @click="addItem(prod)">Add to cart</button>
+              </div>
+            </li>
+          </ul>
+          <div class="pagination">
+            <button @click="prevPage">Prev</button>
+            <span>{{ currentPage }} / {{ totalPages }}</span>
+            <button @click="nextPage">Next</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-dx cart-container" :class="{ 'cart-visible': isCartVisible }">
+        <div class="cart">
+          <h2 class="cart-title"> Cart</h2>
+          <button class="close-btn" @click="toggleCartVisibility">X</button>
+          <table class="cart-list" v-if="cart.length">
+            <thead>
+              <tr>
+                <th class="head-title">Product</th>
+                <th class="head-price">Price</th>
+                <th class="head-quantity">Quantity</th>
+                <th class="head-total">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="cart-item" v-for="(item, id) in cart" :key="'id-' + id">
+                <td>
+                  <h4 class="title">{{ item.title }}</h4>
+                </td>
+                <td>
+                  <div class="price">{{ item.price | currency }}</div>
+                </td>
+                <td>
+                  <div class="quantity">
+                    {{ item.quantity }}<span class="qty-handler"><span @click="add(item)">+</span><span @click="sub(item)">-</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="total">{{ item.price * item.quantity | currency }}</div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="3">
+                  <h4 class="total-title">Total</h4>
+                </th>
+                <th>{{ total | currency }}</th>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="empty-contents" v-else>
+            <p class="no-items-text">Your cart is actually empty</p>
+          </div>
+          <!-- Add input fields for username and email -->
+          <div v-if="cart.length" class="user-info">
+            <input v-model="username" type="text" placeholder="Your name" required />
+            <input v-model="email" type="email" placeholder="Your email" required />
+            <button @click="purchase">Buy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.1/dist/js.cookie.min.js"></script>
+  <script type="module" src="../assets/js/store.js"></script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue-router@3.5.2/dist/vue-router.js"></script>
+    <link rel="stylesheet" href="../assets/css/admin-pan.css">
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <header>
+                <h1>Admin Panel</h1>
+                <div class="actions">
+                    <button @click="showAddModal = true" class="btn btn-default">
+                        <span class="glyphicon glyphicon-plus"></span>
+                        <b>Add product</b>
+                    </button>
+                    <button @click="showAdminModal = true" class="btn btn-default">
+                        <span class="glyphicon glyphicon-plus"></span>
+                        <b>Add Admin/Manager</b>
+                    </button>
+                </div>
+            </header>
+            <main>
+                <div v-if="currentView === 'products'">
+                    <h2>Products</h2>
+                    <div class="filters">
+                        <button @click="currentView = 'products'" class="btn btn-default">
+                            <b>Products</b>
+                        </button>
+                        <button @click="currentView = 'admins'" class="btn btn-default">
+                            <b>Admins/Managers</b>
+                        </button>
+                        <button @click="currentView = 'orders'" class="btn btn-default"><b>Orders</b></button> 
+                        <br><br>
+                        <label for="category-filter">Category:</label>
+                        <select v-model="selectedCategory" @change="filterByCategory">
+                            <option value="">All</option>
+                            <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                        </select>
+                        <label for="model-filter">Model:</label>
+                        <select v-model="selectedModel" @change="filterByModel">
+                            <option value="">All</option>
+                            <option v-for="model in models" :key="model" :value="model">{{ model }}</option>
+                        </select>
+  
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Price</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="product in filteredProducts" :key="product._id">
+                                <td>{{ product.title }}</td>
+                                <td>{{ product.price }}</td>
+                                <td>
+                                    <button class="btn btn-warning" @click="editProduct(product)">Edit</button>
+                                    <button class="btn btn-danger" @click="confirmDeleteProduct(product._id)">Delete</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div v-if="showAdminModal" class="modal">
+                  <div class="modal-content">
+                    <h2>Add Admin/Manager</h2>
+                    <form @submit.prevent="createAdminOrManager">
+                   
+                      <div class="form-group">
+                        <label for="admin-name">Name</label>
+                        <input id="admin-name" v-model="newAdmin.name" required>
+                      </div>
+                
+                      <div class="form-group">
+                        <label for="admin-email">Email</label>
+                        <input id="admin-email" v-model="newAdmin.email" type="email" required>
+                      </div>
+                          
+                           
+      <div class="form-group">
+        <label for="admin-password">Password</label>
+        <input id="admin-password" v-model="newAdmin.password" type="password" required>
+      </div>
+
+      
+      <div class="form-group">
+        <label for="admin-role">Role</label>
+        <select id="admin-role" v-model="newAdmin.role" @change="onRoleChange" required>
+          <option value="admin">Admin</option>
+          <option value="manager">Manager</option>
+        </select>
+      </div>
+                          
+ 
+ <div v-if="newAdmin.role === 'manager'">
+
+  <div class="form-group">
+    <label for="admin-product-category">Select Category</label>
+    <select id="admin-product-category" v-model="selectedCategory" @change="updateFilteredModels">
+      <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+    </select>
+  </div>
+                          
+                             
+        <div class="form-group" v-if="selectedCategory">
+          <label for="admin-product-model">Select Models</label>
+          <div>
+            <button type="button" @click="toggleAllModels">All</button>
+            <div v-for="model in filteredModels" :key="model" @click="toggleModelSelection(model)"
+                 :class="{'selected': selectedModel.includes(model)}">
+              {{ model }}
+            </div>
+          </div>
+        </div>
+
+       
+        <button type="button" @click="saveSelection">Save Selection</button>
+
+        <div v-if="categoryModelSelection.length > 0">
+          <h3>Selected Categories and Models:</h3>
+          <ul>
+            <li v-for="(selection, index) in categoryModelSelection" :key="index">
+              {{ selection.category }}: {{ selection.models.includes('all') ? 'All' : selection.models.join(', ') }}
+              <button @click="removeCategory(index)">Remove</button>
+            </li>
+          </ul>
+        </div>
+                          
+      
+        <div class="form-group">
+          <label>Permissions</label>
+          <div>
+            <input type="checkbox" id="admin-can-create" v-model="newAdmin.permissions.canCreate">
+            <label for="admin-can-create">Can Create</label>
+          </div>
+          <div>
+            <input type="checkbox" id="admin-can-delete" v-model="newAdmin.permissions.canDelete">
+            <label for="admin-can-delete">Can Delete</label>
+          </div>
+        </div>
+      </div>
+                          
+
+      <button type="submit" class="btn btn-primary">Create</button>
+      <button type="button" class="btn btn-default" @click="closeAdminModal">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<div v-if="showEditAdminModal" class="modal" @click.self="closeEditAdminModal">
+  <div class="modal-content">
+    <h2>Edit Admin/Manager</h2>
+    <form @submit.prevent="updateAdmin">
+      <div class="form-group">
+        <label for="admin-name">Name:</label>
+        <input type="text" id="admin-name" v-model="currentAdmin.name" required>
+      </div>
+      <div class="form-group">
+        <label for="admin-email">Email:</label>
+        <input type="email" id="admin-email" v-model="currentAdmin.email" required>
+      </div>
+
+
+      <div class="form-group">
+        <label for="admin-role">Role:</label>
+        <select id="admin-role" v-model="currentAdmin.role" required>
+          <option value="admin">Admin</option>
+          <option value="manager">Order Manager</option>
+        </select>
+      </div>
+
+    
+      <div v-if="currentAdmin.role === 'manager'">
+        <div class="form-group">
+          <label for="admin-product-categories">Product Categories:</label>
+          <select id="admin-product-categories" v-model="selectedEditCategory">
+            <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+          </select>
+          <button type="button" @click="addCategoryToAdmin">Add Category</button>
+        </div>
+
+        
+        <div v-for="(models, category) in currentAdmin.productModels" :key="category" class="form-group">
+          <label>{{ category }} Models:</label>
+          <div>
+            <label><input type="checkbox" @change="toggleAllModelsEdit(category)" :checked="models.includes('all')"> All</label>
+            <div v-if="!models.includes('all')">
+              <label v-for="model in getCategoryModels(category)" :key="model">
+                <input type="checkbox" :value="model" @change="toggleModelEdit(category, model)" :checked="models.includes(model)">
+                {{ model }}
+              </label>
+            </div>
+          </div>
+          <button type="button" @click="removeCategoryFromAdmin(category)">Remove Category</button>
+        </div>
+      </div>
+
+      
+      <div v-if="currentAdmin.role === 'manager'">
+        <div class="form-group">
+          <label>Permissions:</label>
+          <div>
+            <input type="checkbox" id="can-create" v-model="currentAdmin.permissions.canCreate">
+            <label for="can-create">Can Create</label>
+          </div>
+          <div>
+            <input type="checkbox" id="can-delete" v-model="currentAdmin.permissions.canDelete">
+            <label for="can-delete">Can Delete</label>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save</button>
+      <button type="button" class="btn btn-secondary" @click="closeEditAdminModal">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<div v-if="showDeleteAdminModal" class="modal" @click.self="closeDeleteAdminModal">
+    <div class="modal-content">
+        <h2>Confirm Delete</h2>
+        <p>Are you sure you want to delete this admin/manager?</p>
+        <button class="btn btn-danger" @click="deleteAdmin">Delete</button>
+        <button class="btn btn-secondary" @click="closeDeleteAdminModal">Cancel</button>
+    </div>
+</div>
+                <div v-if="currentView === 'admins'">
+                    <h2>Admins/Managers</h2>
+                    <div class="filters">
+                        <button @click="currentView = 'products'" class="btn btn-default">
+                            <b>Products</b>
+                        </button>
+                        <button @click="currentView = 'admins'" class="btn btn-default">
+                            <b>Admins/Managers</b>
+                        </button>
+                        <button @click="currentView = 'orders'" class="btn btn-default"><b>Orders</b></button> 
+ <br><br>
+                
+
+                        <label for="role-filter">Show:</label>
+                        <select v-model="selectedRole" @change="filterByRole">
+                            <option value="">All</option>
+                            <option value="manager">Order Managers</option>
+                            <option value="admin">Admins</option>
+                        </select>
+                    </div>
+                
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Category</th>
+                                <th>Model</th>
+                                <th>Permissions</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="admin in filteredAdminsAndManagers" :key="admin._id">
+                                <td>{{ admin.name }}</td>
+                                <td>{{ admin.email }}</td>
+                                <td>{{ admin.role }}</td>
+                                <td v-if="admin.role === 'manager'">
+                                  <span v-if="admin.productCategories && admin.productCategories.length > 0">
+                                    {{ admin.productCategories.join(', ') }}
+                                  </span>
+                                </td>
+                                <td v-else></td>
+   
+      <td v-if="admin.role === 'manager'">
+        <span v-if="admin.productModels">
+          <span v-for="(models, category) in admin.productModels" :key="category">
+            {{ category }}: {{ models.includes('all') ? 'All' : models.join(', ') }};
+          </span>
+        </span>
+      </td>
+      <td v-else></td>
+      
+      <td v-if="admin.role === 'manager'">
+        Create: {{ admin.permissions && admin.permissions.canCreate ? 'Yes' : 'No' }}<br>
+        Delete: {{ admin.permissions && admin.permissions.canDelete ? 'Yes' : 'No' }}
+      </td>
+      <td v-else></td>
+                                <td>
+                                    <button class="btn btn-warning" @click="editAdmin(admin)">Edit</button>
+                                    <button class="btn btn-danger" @click="confirmDeleteAdmin(admin._id)">Delete</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div v-if="currentView === 'orders'">
+                    <h2>Orders</h2>
+                    
+                  
+                    <div class="filters">
+                      <button @click="currentView = 'products'" class="btn btn-default"><b>Products</b></button>
+                      <button @click="currentView = 'admins'" class="btn btn-default"><b>Admins/Managers</b></button>
+                      <button @click="currentView = 'orders'" class="btn btn-default"><b>Orders</b></button>
+                  
+                   <br><br>
+                   <label for="role-filter">Products:</label>
+    
+                        <select v-model="filterCategory" @change="onCategoryChange">
+                            <option value="">Model</option>
+                            <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                        </select>
+                    
+                        
+                        <select v-model="filterModel" @change="filterOrders">
+                            <option value="">Category</option>
+                            <option v-for="model in filteredModels" :key="model" :value="model">{{ model }}</option>
+                        </select>
+
+                      <select v-model="filterStatus" @change="filterOrders">
+                        <option value="">Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                  
+                    <br><br>
+                    <label for="role-filter">Sort:</label>
+                      <select v-model="filterDate" @change="filterOrders">
+                        <option value="">Date</option>
+                        <option value="asc">Oldest First</option>
+                        <option value="desc">Newest First</option>
+                      </select>
+
+                      <select v-model="sortByAmount" @change="filterOrders">
+                        <option value="">Amount</option>
+                        <option value="asc">Lowest First</option>
+                        <option value="desc">Highest First</option>
+                      </select>
+                  
+                     <br><br>
+                     <label for="role-filter">Date:</label>
+                      <select v-model="filterYear" @change="filterOrders">
+                        <option value="">Years</option>
+                        <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+                      </select>
+                      
+                      <select v-model="filterMonth" @change="filterOrders">
+                        <option value="">Months</option>
+                        <option value="01">January</option>
+                        <option value="02">February</option>
+                        <option value="03">March</option>
+                        <!-- тут колись допишу) -->
+                      </select>
+                  
+                      
+                      <input type="number" v-model="filterDay" @change="filterOrders" placeholder="Day" min="1" max="31" />
+                  
+                      
+                      <select v-model="filterTimeOfDay" @change="filterOrders">
+                        <option value="">Time</option>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                  
+                    
+                    </div>
+                  
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>Username</th>
+                          <th>Email</th>
+                          <th>Products</th>
+                          <th>Total Amount</th>
+                          <th>Created At</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="order in filteredOrders" :key="order._id">
+                          <td>{{ order.username }}</td>
+                          <td>{{ order.email }}</td>
+                          <td>
+                            <ul>
+                              <li v-for="product in order.products" :key="product.title">
+                                {{ product.title }} - {{ product.price }} x {{ product.quantity }}
+                              </li>
+                            </ul>
+                          </td>
+                          <td>{{ order.totalAmount }}</td>
+                          <td>{{ new Date(order.createdAt).toLocaleString() }}</td>
+                          <td>{{ order.status }}</td>
+                          <td>
+                            <button class="btn btn-warning" @click="toggleOrderStatus(order)">
+                              {{ order.status === 'Completed' ? 'Pending' : 'Complete' }}
+                            </button>
+                            <button class="btn btn-danger" @click="confirmDeleteOrder(order._id)">Delete</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  
+            </div>
+            </main>
+            <div v-if="showAddModal" class="modal">
+                <div class="modal-content">
+                    <h2>Add new product</h2>
+                    <form @submit.prevent="createProduct">
+                        <div class="form-group">
+                            <label for="add-title">Title</label>
+                            <input id="add-title" v-model="newProduct.title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="add-price">Price</label>
+                            <input type="number" id="add-price" v-model="newProduct.price" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="add-image">Image</label>
+                            <input id="add-image" v-model="newProduct.image" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="add-category">Category</label>
+                            <select id="add-category" v-model="newProduct.category" required>
+                                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="add-model">Model</label>
+                            <select id="add-model" v-model="newProduct.model" required>
+                                <option v-for="model in models" :key="model" :value="model">{{ model }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="add-description">Description</label>
+                            <textarea id="add-description" v-model="newProduct.description"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="add-characteristics">Characteristics</label>
+                            <textarea id="add-characteristics" v-model="newProduct.characteristics"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                        <button type="button" class="btn btn-default" @click="closeAddModal">Cancel</button>
+                    </form>
+                </div>
+            </div>
+            <div v-if="showEditModal" class="modal">
+                <div class="modal-content">
+                    <h2>Edit product</h2>
+                    <form @submit.prevent="updateProduct">
+                        <div class="form-group">
+                            <label for="edit-title">Title</label>
+                            <input id="edit-title" v-model="currentProduct.title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-price">Price</label>
+                            <input type="number" id="edit-price" v-model="currentProduct.price" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-image">Image</label>
+                            <input id="edit-image" v-model="currentProduct.image" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-category">Category</label>
+                            <select id="edit-category" v-model="currentProduct.category" required>
+                                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-model">Model</label>
+                            <select id="edit-model" v-model="currentProduct.model" required>
+                                <option v-for="model in models" :key="model" :value="model">{{ model }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-description">Description</label>
+                            <textarea id="edit-description" v-model="currentProduct.description"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-characteristics">Characteristics</label>
+                            <textarea id="edit-characteristics" v-model="currentProduct.characteristics"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update</button>
+                        <button type="button" class="btn btn-default" @click="closeEditModal">Cancel</button>
+                    </form>
+                </div>
+            </div>
+            <div v-if="showDeleteModal" class="modal">
+                <div class="modal-content">
+                    <h2>Confirm Delete</h2>
+                    <p>Are you sure you want to delete this product?</p>
+                    <button class="btn btn-danger" @click="deleteProduct">Delete</button>
+                    <button class="btn btn-default" @click="closeDeleteModal">Cancel</button>
+                </div>
+            </div>
+
+
+            <div v-if="showDeleteOrderModal" class="modal" @click.self="closeOrderModal">
+                <div class="modal-content">
+                    <h2>Confirm Delete</h2>
+                    <p>Are you sure you want to cancel this order?</p>
+                    <button class="btn btn-danger" @click="deleteOrder">Delete</button>
+                    <button class="btn btn-secondary" @click="closeOrderModal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="../assets/js/admin-pan.js"></script>
+</body>
+</html>
